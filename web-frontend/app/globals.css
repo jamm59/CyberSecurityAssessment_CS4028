@@ -19,6 +19,9 @@ body {
   background: var(--background);
   font-family: "Open Sans", sans-serif;
 }
+dialog::backdrop {
+  backdrop-filter: blur(7px);
+}
 @layer utilities {
   .text-balance {
     text-wrap: balance;
