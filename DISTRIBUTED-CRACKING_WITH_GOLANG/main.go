@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"net/http"
 	"sync"
 
-	socketio "github.com/googollee/go-socket.io"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
 )
 
 var (
@@ -26,47 +26,13 @@ var (
 	semaphore         chan struct{} = make(chan struct{}, 110000) // Semaphore to limit the number of goroutines
 )
 
-func generatePasswords(concatString string, maxLength int, s socketio.Conn) {
-	defer wg.Done()                // Decrement the WaitGroup counter when the goroutine completes
-	defer func() { <-semaphore }() // Release a slot in the semaphore when done
-
-	if len(concatString) == maxLength {
-		return
-	}
-
-	for _, char := range inputString {
-		if foundCount < 1 {
-			break
-		}
-
-		hashedString := sha512Hash(concatString)
-
-		mu.Lock() // Lock access to shared resources (foundCount, unhashedPasswords)
-		if containsHash(hashedString) && !unhashedPasswords[concatString] {
-			unhashedPasswords[concatString] = true
-			s.Emit("cracked_password", concatString) // Send the cracked password to the client via WebSocket
-			foundCount--
-			mu.Unlock() // Unlock after updating the shared data
-			return
-		}
-		mu.Unlock()
-
-		select {
-		case semaphore <- struct{}{}: // Try to acquire a slot in the semaphore
-			wg.Add(1)
-			go generatePasswords(concatString+string(char), maxLength, s)
-		default:
-			// If no slot is available, use regular recursion
-			generatePasswords(concatString+string(char), maxLength, s)
-		}
-	}
-}
-
+// Hashes a string using SHA512
 func sha512Hash(input string) string {
 	hash := sha512.Sum512([]byte(input))
 	return hex.EncodeToString(hash[:])
 }
 
+// Check if the hash exists in the predefined list of hashes
 func containsHash(hash string) bool {
 	for _, h := range listOfHashes {
 		if h == hash {
@@ -76,50 +42,89 @@ func containsHash(hash string) bool {
 	return false
 }
 
-func checkHash(s socketio.Conn) {
-	for length := 1; length < 5; length++ {
-		if foundCount > 0 {
-			wg.Add(1)                           // Add to the WaitGroup for the main recursive call
-			semaphore <- struct{}{}             // Acquire a slot in the semaphore
-			go generatePasswords("", length, s) // Pass WebSocket connection to each goroutine
+// Password generation and cracking
+func generatePasswords(concatString string, maxLength int, ws *websocket.Conn) {
+	defer wg.Done()
+	defer func() { <-semaphore }()
+
+
+	if len(concatString) == maxLength {
+		return
+	}
+
+	mu.Lock()
+	if err := ws.WriteMessage(websocket.TextMessage, []byte(concatString)); err != nil {
+		fmt.Println("Error sending cracked password:", err)
+		return
+	}
+	mu.Unlock()
+
+	for _, char := range inputString {
+		if foundCount < 1 {
+			break
+		}
+		hashedString := sha512Hash(concatString)
+		mu.Lock()
+		if containsHash(hashedString) && !unhashedPasswords[concatString] {
+			unhashedPasswords[concatString] = true
+			// Send cracked password via WebSocket
+			if err := ws.WriteMessage(websocket.TextMessage, []byte("result==" + concatString)); err != nil {
+				fmt.Println("Error sending cracked password:", err)
+				return
+			}
+			foundCount--
+			mu.Unlock()
+			return
+		}
+		mu.Unlock()
+
+		select {
+		case semaphore <- struct{}{}:
+			wg.Add(1)
+			go generatePasswords(concatString+string(char), maxLength, ws)
+		default:
+			generatePasswords(concatString+string(char), maxLength, ws)
 		}
 	}
-	wg.Wait()                                               // Wait for all goroutines to finish
-	s.Emit("crack_complete", "Password cracking completed") // Notify the client
+}
+
+// Crack passwords and update the client via WebSocket
+func checkHash(ws *websocket.Conn) {
+	for length := 1; length < 5; length++ {
+		if foundCount > 0 {
+			wg.Add(1)
+			semaphore <- struct{}{}
+			generatePasswords("", length, ws)
+		}
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	if err := ws.WriteMessage(websocket.TextMessage, []byte("All passwords cracked!")); err != nil {
+		fmt.Println("Error sending final message:", err)
+	}
 }
 
 func main() {
-	server()
-}
+	// Create a new Fiber instance
+	app := fiber.New()
 
-func server() {
-	server := socketio.NewServer(nil)
+	// WebSocket endpoint for cracking passwords
+	app.Get("/crack", websocket.New(func(c *websocket.Conn) {
+		fmt.Println("WebSocket connected")
 
-	server.OnConnect("/", func(s socketio.Conn) error {
-		s.SetContext("")
-		fmt.Println("connected:", s.ID())
-		return nil
-	})
+		// Start password cracking
+		checkHash(c)
 
-	// Define the /crack route for cracking passwords
-	server.OnEvent("/", "crack", func(s socketio.Conn, msg string) {
-		fmt.Println("Starting password cracking...")
-		checkHash(s) // Start password cracking and send updates via WebSocket
-	})
+		// Close the WebSocket connection when done
+		defer func() {
+			if err := c.Close(); err != nil {
+				fmt.Println("Error closing WebSocket:", err)
+			}
+		}()
+	}))
 
-	server.OnError("/", func(s socketio.Conn, e error) {
-		fmt.Println("meet error:", e)
-	})
-
-	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
-		fmt.Println("closed", reason)
-	})
-
-	go server.Serve()
-	defer server.Close()
-
-	http.Handle("/socket.io/", server)
-	http.Handle("/", http.FileServer(http.Dir("./asset")))
-	log.Println("Serving at localhost:8000...")
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	// Serve the app on port 8000
+	log.Println("WebSocket server running on ws://localhost:8000/crack")
+	log.Fatal(app.Listen(":8000"))
 }
