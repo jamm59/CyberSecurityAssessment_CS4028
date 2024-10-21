@@ -1,3 +1,4 @@
+import asyncio
 import hashlib, sys, os, time
 inputHashedAndSaltedPair = [
 (
@@ -57,7 +58,7 @@ class TaskThree:
         return [pas.strip("\n").strip("\t") for pas in passwordList]
 
 
-    def checkHash(self):
+    async def checkHash(self):
         startTime = time.time()
         for saltedHashedPassword, saltKey in self.inputHashedAndSaltedPair:
             for password in self.passwordList:
@@ -76,6 +77,9 @@ class TaskThree:
                 results.append(self.hashedTable[saltedHashedPassword])
         endTime = time.time()
         print(f"It took {endTime - startTime} seconds to find the passwords:\n {results}")
+        if self.websocket is not None:
+            for string in results:
+                await self.websocket.send("result=="+string)
 
 
 if __name__ == "__main__":

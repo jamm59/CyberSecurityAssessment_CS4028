@@ -1,3 +1,4 @@
+import asyncio
 import hashlib, time, pickle, pprint
 from collections import defaultdict
 
@@ -44,7 +45,7 @@ class TaskTwo:
         except FileNotFoundError:
             return None
 
-    def checkHash(self):
+    async def checkHash(self):
         startTime = time.time()
         self.hashedTable = self.loadPasswordDictTable()
         if self.hashedTable is None:
@@ -60,6 +61,9 @@ class TaskTwo:
                 results.append(self.hashedTable[hashed])
         endTime = time.time()
         print(f"It took {endTime - startTime} seconds to find the passwords:\n {results}")
+        if self.websocket is not None:
+            for string in results:
+                await self.websocket.send("result=="+string)
 
 
 

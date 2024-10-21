@@ -72,7 +72,6 @@ func generatePasswords(concatString string, maxLength int, ws *websocket.Conn) {
 				fmt.Println("Error sending cracked password:", err)
 				return
 			}
-			fmt.Println(concatString)
 			foundCount--
 			mu.Unlock()
 			return

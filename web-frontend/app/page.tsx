@@ -17,7 +17,7 @@ import SettingsModal from "@/components/Setting";
 
 export default function Home() {
   // handle settings
-  const [taskNumber, setTaskNumber] = useState<number>(4);
+  const [taskNumber, setTaskNumber] = useState<number>(1);
   const [inputData, setInputData] = useState<
     TaskType[] | TaskThreeType[] | undefined
   >(
@@ -32,14 +32,14 @@ export default function Home() {
         case 4:
           return taskOneInput;
         case 5:
-          return undefined;
+          return taskOneInput;
       }
     })()
   );
   const [task1to3URL, setTask1to3URL] = useState<string>("localhost:5000");
   const [task4URL, setTask4URL] = useState<string>("localhost:8000");
 
-  const [subTitle, setSubTitle] = useState<string>("DISTRIBUTED CRACKING");
+  const [subTitle, setSubTitle] = useState<string>("BRUTE FORCE");
   const [streamedText, setStreamedText] = useState<string>(
     "click to start cracking"
   );
@@ -50,14 +50,17 @@ export default function Home() {
     // Create a WebSocket connection to the Go Fiber server
     let socket = undefined;
     if (taskNumber > 3) {
+      // This case is for task 4
       socket = new WebSocket("ws://" + task4URL + "/crack");
     } else {
-      socket = new WebSocket("ws://" + task1to3URL + "/crack");
+      // This is for task 1 to 3
+      socket = new WebSocket("ws://" + task1to3URL + `/crack${taskNumber}`);
     }
 
     // When the WebSocket connection is established
     socket.onopen = () => {
       console.log("Connected to WebSocket server");
+      setOutputPasswords([]);
       //setIsConnected(true);
     };
 
@@ -91,22 +94,27 @@ export default function Home() {
   const handleDataUpdate = (index: number) => {
     switch (index) {
       case 1:
+        setTaskNumber(1);
         setInputData(taskOneInput);
         setSubTitle("BRUTE FORCE");
         break;
       case 2:
+        setTaskNumber(2);
         setInputData(taskTwoInput);
         setSubTitle("DICTIONARY ATTACK");
         break;
       case 3:
+        setTaskNumber(3);
         setInputData(taskThreeInput);
         setSubTitle("DICTIONARY ATTACK WITH SALTS");
         break;
       case 4:
+        setTaskNumber(4);
         setInputData(taskOneInput);
         setSubTitle("DISTRIBUTED CRACKING IN GOLANG");
         break;
       case 5:
+        setTaskNumber(5);
         setInputData(taskOneInput);
         setSubTitle("ANALYTICS");
         break;
@@ -187,7 +195,7 @@ export default function Home() {
                     if (typeof input === "string") return;
                     return (
                       <p
-                        className="text-xs break-words w-full shadow-lg p-2 mb-1 rounded-lg text-black"
+                        className="text-xs break-words w-full shadow-lg p-1 mb-1 rounded-lg text-black"
                         key={index}
                       >
                         {}.{input.hashedPassword.slice(0, 70)}...,
@@ -220,8 +228,8 @@ export default function Home() {
                   }
                 )}
           </div>
-          <div className="p-2 w-full h-full rounded-lg grid grid-rows-3 overflow-hidden">
-            <div className="grid place-items-center">
+          <div className="p-2 w-full h-full rounded-lg grid grid-rows-4 overflow-hidden">
+            <div className="grid place-items-center row-span-3">
               <h3 className="font-black text-black text-2xl uppercase grid place-items-center">
                 {subTitle}
               </h3>

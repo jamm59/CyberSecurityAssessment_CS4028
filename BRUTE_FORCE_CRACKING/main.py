@@ -1,3 +1,4 @@
+import asyncio
 import hashlib, string, time, math
 ListoFHashes = [
         "f14aae6a0e050b74e4b7b9a5b2ef1a60ceccbbca39b132ae3e8bf88d3a946c6d8687f3266fd2b626419d8b67dcf1d8d7c0fe72d4919d9bd05efbd37070cfb41a",
@@ -37,7 +38,7 @@ class TaskOne():
         return 
 
 
-    def checkHash(self, results=""):
+    async def checkHash(self, results=""):
         maxLength = len(self.inputString)
         startTime = time.time()
         for length in range(1, maxLength):
@@ -45,6 +46,9 @@ class TaskOne():
                 self.generatePasswords("", length)
         endTime = time.time()
         print(f"It took {round(endTime - startTime, 2)}seconds to find the passwords:\n {self.unhashedPasswords}")
+        if self.websocket is not None:
+            for string in self.unhashedPasswords:
+                await self.websocket.send("result=="+string)
 
 
 
