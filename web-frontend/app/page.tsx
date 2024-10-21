@@ -3,27 +3,57 @@
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faDumbbell,
+  faCubesStacked,
   faBook,
   faPlus,
   faServer,
   faChartSimple,
   faKey,
+  faCog,
 } from "@fortawesome/free-solid-svg-icons";
-
+import { taskOneInput, taskTwoInput, taskThreeInput } from "@/utils/extra";
+import { TaskThreeType, TaskType } from "@/utils/extra";
 import SettingsModal from "@/components/Setting";
 
 export default function Home() {
-  const [subTitle, setSubTitle] = useState<String>("DISTRIBUTED CRACKING");
-  const [streamedText, setStreamedText] = useState<String>(
+  // handle settings
+  const [taskNumber, setTaskNumber] = useState<number>(4);
+  const [inputData, setInputData] = useState<
+    TaskType[] | TaskThreeType[] | undefined
+  >(
+    (() => {
+      switch (taskNumber) {
+        case 1:
+          return taskOneInput;
+        case 2:
+          return taskTwoInput;
+        case 3:
+          return taskThreeInput;
+        case 4:
+          return taskOneInput;
+        case 5:
+          return undefined;
+      }
+    })()
+  );
+  const [task1to3URL, setTask1to3URL] = useState<string>("localhost:5000");
+  const [task4URL, setTask4URL] = useState<string>("localhost:8000");
+
+  const [subTitle, setSubTitle] = useState<string>("DISTRIBUTED CRACKING");
+  const [streamedText, setStreamedText] = useState<string>(
     "click to start cracking"
   );
-  const [outputPasswords, setOutputPasswords] = useState<String[]>([]);
+  const [outputPasswords, setOutputPasswords] = useState<string[]>([]);
   const [showModal, setShowModal] = useState<boolean>(true);
   const targetSearch = "result==";
   const handleGetPassword = () => {
     // Create a WebSocket connection to the Go Fiber server
-    const socket = new WebSocket("ws://localhost:8000/crack");
+    let socket = undefined;
+    if (taskNumber > 3) {
+      socket = new WebSocket("ws://" + task4URL + "/crack");
+    } else {
+      socket = new WebSocket("ws://" + task1to3URL + "/crack");
+    }
 
     // When the WebSocket connection is established
     socket.onopen = () => {
@@ -33,17 +63,24 @@ export default function Home() {
 
     // When a message is received from the server
     socket.onmessage = (event) => {
-      const data: String = event.data;
+      const data: string = event.data;
       if (targetSearch.length <= data.length && data.includes("result=="))
         setTimeout(
           () =>
-            setOutputPasswords((prevPasswords) => [
-              ...prevPasswords,
-              data.split(targetSearch)[1],
-            ]),
+            setOutputPasswords((prevPasswords) => {
+              const output = data.split(targetSearch)[1];
+              if (!prevPasswords.includes(output))
+                return [...prevPasswords, output];
+              return prevPasswords;
+            }),
           0
         );
       else setStreamedText(data);
+    };
+
+    socket.onerror = (event) => {
+      alert("Websocket Url '" + task4URL + "' Not Valid");
+      setShowModal(true);
     };
 
     return () => {
@@ -51,63 +88,137 @@ export default function Home() {
     };
   };
 
-  // Handle WebSocket connection closing
-  // socket.onclose = () => {
-  //   console.log("WebSocket connection closed");
-  //   //setIsConnected(false);
-  // };
-
-  // Handle any errors during WebSocket communication
-  //   socket.onerror = (error) => {
-  //     console.error("WebSocket error: ", error);
-  //   };
-
-  // Clean up the WebSocket connection when the component is unmounted
+  const handleDataUpdate = (index: number) => {
+    switch (index) {
+      case 1:
+        setInputData(taskOneInput);
+        setSubTitle("BRUTE FORCE");
+        break;
+      case 2:
+        setInputData(taskTwoInput);
+        setSubTitle("DICTIONARY ATTACK");
+        break;
+      case 3:
+        setInputData(taskThreeInput);
+        setSubTitle("DICTIONARY ATTACK WITH SALTS");
+        break;
+      case 4:
+        setInputData(taskOneInput);
+        setSubTitle("DISTRIBUTED CRACKING IN GOLANG");
+        break;
+      case 5:
+        setInputData(taskOneInput);
+        setSubTitle("ANALYTICS");
+        break;
+    }
+  };
 
   return (
     <>
-      <SettingsModal showModal={true} setShowModal={setShowModal} />
-      <div className="w-screen h-screen flex flex-col justify-center items-center bg-white">
+      <SettingsModal
+        showModal={showModal}
+        setShowModal={setShowModal}
+        settingsInfo={{ task1to3URL, setTask1to3URL, task4URL, setTask4URL }}
+      />
+      <div className="w-screen h-screen flex flex-col justify-center items-center bg-[#FCFAEE]">
         <h1 className="mb-10 text-4xl font-GothicOne text-black uppercase font-black">
           Security Assessment CS4028
         </h1>
         <div className="w-[80%] h-[70%] rounded-lg flex justify-center items-center shadow-2xl overflow-hidden">
           <div className="h-full bg-stone-900 w-[50%] pt-5 col-span-1 flex flex-col justify-start p-3 gap-y-3 items-center">
-            <button className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-OpenSans hover:translate-x-3 transition-all duration-100 font-black text-left p-2 uppercase">
-              <FontAwesomeIcon icon={faDumbbell} className="ml-3" />
-              Task One
+            <button
+              onClick={() => handleDataUpdate(1)}
+              className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-GothicOne hover:translate-x-3 transition-all duration-100 text-left p-2 uppercase"
+            >
+              <FontAwesomeIcon
+                icon={faCubesStacked}
+                className="ml-3"
+                fontSize={24}
+              />
+              Brute Force
             </button>
-            <button className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-OpenSans hover:translate-x-3 transition-all duration-100 font-black text-left p-2 uppercase">
-              <FontAwesomeIcon icon={faBook} className="ml-3" />
-              Task Two
+            <button
+              onClick={() => handleDataUpdate(2)}
+              className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-GothicOne hover:translate-x-3 transition-all duration-100 font-extrabold text-left p-2 uppercase"
+            >
+              <FontAwesomeIcon icon={faBook} className="ml-3" fontSize={24} />
+              DICT ATTACK
             </button>
-            <button className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-OpenSans hover:translate-x-3 transition-all duration-100 font-black text-left p-2 uppercase">
-              <FontAwesomeIcon icon={faPlus} className="ml-3" />
-              Task Three
+            <button
+              onClick={() => handleDataUpdate(3)}
+              className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-GothicOne hover:translate-x-3 transition-all duration-100 font-extrabold text-left p-2 uppercase"
+            >
+              <FontAwesomeIcon icon={faPlus} className="ml-3" fontSize={24} />
+              SALT ATTACKS
             </button>
-            <button className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-OpenSans hover:translate-x-3 transition-all duration-100 font-black text-left p-2 uppercase">
-              <FontAwesomeIcon icon={faServer} className="ml-3" />
-              Task Four
+            <button
+              onClick={() => handleDataUpdate(4)}
+              className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-GothicOne hover:translate-x-3 transition-all duration-100 font-extrabold text-left p-2 uppercase"
+            >
+              <FontAwesomeIcon icon={faServer} className="ml-3" fontSize={24} />
+              DISTRIBUTED
             </button>
-            <button className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-OpenSans hover:translate-x-3 transition-all duration-100 font-black text-left p-2 uppercase">
-              <FontAwesomeIcon icon={faChartSimple} className="ml-3" />
-              Graphs
+            <button
+              onClick={() => handleDataUpdate(5)}
+              className="w-full flex justify-start items-center gap-3 py-3 rounded-lg text-lg font-GothicOne hover:translate-x-3 transition-all duration-100 font-extrabold text-left p-2 uppercase"
+            >
+              <FontAwesomeIcon
+                icon={faChartSimple}
+                className="ml-3"
+                fontSize={24}
+              />
+              ANALYTICS
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="w-full bg-white text-black flex justify-start mt-auto items-center gap-3 py-3 rounded-lg text-lg font-GothicOne transition-all duration-100 font-extrabold text-left p-2 uppercase"
+            >
+              <FontAwesomeIcon icon={faCog} className="ml-3" />
+              Settings
             </button>
           </div>
-          <div className="bg-gradient-to-r from-sky-500 to-blue-500 h-full flex flex-col w-[30%] justify-center items-center">
+          <div className="bg-gradient-to-r from-sky-500 to-blue-500 h-full flex flex-col p-2 w-[30%] justify-start items-center">
             <h4 className="uppercase font-black text-black">input hashes</h4>
-            <p className="text-sm break-words w-full shadow-xl p-3 rounded-lg text-black">
-              "f14aae6a0e050b74e4b7b9a5b2ef1a60ceccbbca39b132ae3e8bf88d3a946c6d8687f3266fd2b626419d8b67dcf1d8d7c0fe72d4919d9bd05efbd37070cfb41a",
-            </p>
-            <p className="text-sm break-words w-full shadow-xl p-3 rounded-lg text-black">
-              "e85e639da67767984cebd6347092df661ed79e1ad21e402f8e7de01fdedb5b0f165cbb30a20948f1ba3f94fe33de5d5377e7f6c7bb47d017e6dab6a217d6cc24",
-            </p>
-            <p className="text-sm break-words w-full shadow-xl p-3 rounded-lg text-black">
-              "4e2589ee5a155a86ac912a5d34755f0e3a7d1f595914373da638c20fecd7256ea1647069a2bb48ac421111a875d7f4294c7236292590302497f84f19e7227d80",
-            </p>
-            <p className="text-sm break-words w-full shadow-xl p-3 rounded-lg text-black">
-              "afd66cdf7114eae7bd91da3ae49b73b866299ae545a44677d72e09692cdee3b79a022d8dcec99948359e5f8b01b161cd6cfc7bd966c5becf1dff6abd21634f4b",
-            </p>
+            {taskNumber === 3
+              ? inputData !== undefined &&
+                inputData.map(
+                  (input: TaskThreeType | TaskType, index: number) => {
+                    // Check if the input is TaskThreeType by verifying if 'hashedPassword' exists
+                    if (typeof input === "string") return;
+                    return (
+                      <p
+                        className="text-xs break-words w-full shadow-lg p-2 mb-1 rounded-lg text-black"
+                        key={index}
+                      >
+                        {}.{input.hashedPassword.slice(0, 70)}...,
+                      </p>
+                    );
+                  }
+                )
+              : inputData !== undefined &&
+                inputData.map(
+                  (input: TaskThreeType | TaskType, index: number) => {
+                    // Check if the input is TaskThreeType by verifying if 'hashedPassword' exists
+                    if (typeof input === "string") {
+                      return (
+                        <p
+                          className="text-sm break-words w-full shadow-lg p-2 mb-1 rounded-lg text-black"
+                          key={index}
+                        >
+                          {input.slice(0, 70)}...,
+                        </p>
+                      );
+                    }
+                    return (
+                      <p
+                        className="text-sm break-words w-full shadow-lg p-2 mb-1 rounded-lg text-black"
+                        key={index}
+                      >
+                        {input.hashedPassword.slice(0, 70)}...,
+                      </p>
+                    );
+                  }
+                )}
           </div>
           <div className="p-2 w-full h-full rounded-lg grid grid-rows-3 overflow-hidden">
             <div className="grid place-items-center">
@@ -140,7 +251,6 @@ export default function Home() {
                 stop cracking
               </button>
             </div>
-            <div></div>
           </div>
         </div>
       </div>

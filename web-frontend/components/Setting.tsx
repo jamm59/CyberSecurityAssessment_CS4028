@@ -1,16 +1,25 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 
+type SettingsModalProps = {
+  showModal: boolean;
+  setShowModal: Dispatch<SetStateAction<boolean>>;
+  settingsInfo: {
+    task1to3URL: string;
+    setTask1to3URL: Dispatch<SetStateAction<string>>;
+    task4URL: string;
+    setTask4URL: Dispatch<SetStateAction<string>>;
+  };
+};
 export default function SettingsModal({
-  children,
-  showModal = false,
+  showModal,
   setShowModal,
-}: any) {
+  settingsInfo,
+}: SettingsModalProps) {
   const modalRef = useRef<any>();
-  const [task1to3URL, setTask1to3URL] = useState("localhost:5000");
-  const [task4URL, setTask4URL] = useState("localhost:8000");
+  const { task1to3URL, setTask1to3URL, task4URL, setTask4URL } = settingsInfo;
 
   // Function to close the modal
   const handleModalClose = (event: any) => {
@@ -20,16 +29,9 @@ export default function SettingsModal({
     localStorage.setItem("visited", "true"); // Set "visited" flag after closing
   };
 
-  // Check if the user has visited the page before
-  useEffect(() => {
-    const isVisited = localStorage.getItem("visited");
-    if (!isVisited) {
-      setShowModal(true);
-    }
-  }, [setShowModal]);
-
   // Show or close modal based on showModal state
   useEffect(() => {
+    console.log("something");
     if (showModal) {
       modalRef.current.showModal();
     } else {
@@ -55,10 +57,10 @@ export default function SettingsModal({
         <div className="w-full flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-700">Settings</h2>
           <button
-            className="font-OpenSans bg-white text-black shadow-lg  transition-all duration-100 hover:translate-x-1 hover:translate-y-1 text-base text-center px-4 py-2 rounded-lg"
+            className="font-OpenSans bg-white text-black shadow-lg  transition-all duration-100 hover:translate-y-1 text-base text-center px-4 py-2 rounded-lg"
             onClick={handleModalClose}
           >
-            <FontAwesomeIcon icon={faPlus} /> Close
+            <FontAwesomeIcon icon={faPlus} className="rotate-45" /> Close
           </button>
         </div>
 
@@ -99,8 +101,6 @@ export default function SettingsModal({
             />
           </div>
         </div>
-
-        {children}
       </dialog>
     </>
   );
